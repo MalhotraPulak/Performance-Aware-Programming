@@ -14,4 +14,7 @@ deno run -A decoder.ts listing_0040_challenge_movs > solution.asm
 nasm solution.asm
 diff solution listing_0040_challenge_movs
 
-
+nasm listing_0041_add_sub_cmp_jnz.asm
+deno run -A decoder.ts listing_0041_add_sub_cmp_jnz > solution.asm
+nasm solution.asm
+diff solution listing_0041_add_sub_cmp_jnz

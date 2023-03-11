@@ -19,6 +19,32 @@ enum Instr {
   ADD = "add",
   SUB = "sub",
   CMP = "cmp",
+  JE = "je",
+  JL = "jl",
+  JLE = "jle",
+
+  JNE = "jne",
+  JNZ = "jnz",
+  JNO = "jno",
+  JNP = "jnp",
+  JNS = "jns",
+  JZ = "jz",
+  JB = "jb",
+  JBE = "jbe",
+  JP = "jp",
+  JG = "jg",
+  JNL = "jnl",
+  JMP = "jmp",
+  JA = "ja",
+  JNB = "jnb",
+  JO = "jo",
+  JS = "js",
+  JPE = "jpe",
+  JPO = "jpo",
+  LOOP = "loop",
+  LOOPZ = "loopz",
+  LOOPNZ = "loopnz",
+  JCXZ = "jcxz",
 }
 
 enum Type {
@@ -28,12 +54,57 @@ enum Type {
   MEM_TO_ACC,
   ACC_TO_MEM,
   IMM_TO_ACC,
+  JUMP,
 }
 
 const getInstrAndVersion = (b1: number, b2: number) => {
   const four = b1 >> 4;
   const six = b1 >> 2;
   const seven = b1 >> 1;
+
+  switch (b1) {
+    case 0b01110100:
+      return [Instr.JE, Type.JUMP];
+    case 0b01111100:
+      return [Instr.JL, Type.JUMP];
+    case 0b01111110:
+      return [Instr.JLE, Type.JUMP];
+    case 0b01110010:
+      return [Instr.JB, Type.JUMP];
+    case 0b01110110:
+      return [Instr.JBE, Type.JUMP];
+    case 0b01111010:
+      return [Instr.JP, Type.JUMP];
+    case 0b01110000:
+      return [Instr.JO, Type.JUMP];
+    case 0b01111000:
+      return [Instr.JS, Type.JUMP];
+    case 0b01110101:
+      return [Instr.JNE, Type.JUMP];
+    case 0b01111101:
+      return [Instr.JNL, Type.JUMP];
+    case 0b01111111:
+      return [Instr.JG, Type.JUMP];
+    case 0b01110011:
+      return [Instr.JNB, Type.JUMP];
+    case 0b01110111:
+      return [Instr.JA, Type.JUMP];
+    case 0b01111011:
+      return [Instr.JNP, Type.JUMP];
+    case 0b01110001:
+      return [Instr.JNO, Type.JUMP];
+    case 0b01111001:
+      return [Instr.JNS, Type.JUMP];
+    case 0b11100010:
+      return [Instr.LOOP, Type.JUMP];
+    case 0b11100001:
+      return [Instr.LOOPZ, Type.JUMP];
+    case 0b11100000:
+      return [Instr.LOOPNZ, Type.JUMP];
+    case 0b11100011:
+      return [Instr.JCXZ, Type.JUMP];
+  }
+
   if (six === 0b100010) {
     return [Instr.MOV, Type.REG_OR_MEM_TO_MEM];
   } else if (seven === 0b1100011) {
@@ -55,36 +126,36 @@ const getInstrAndVersion = (b1: number, b2: number) => {
     } else if (fields === 0b111) {
       return [Instr.CMP, Type.IMM_TO_REG_OR_MEM];
     } else {
-      throw new Error("Invalid instruction: " + b1.toString(2).padStart(8) + " " + b2.toString(2).padStart(8));
+      throw new Error(
+        "Invalid instruction: " + b1.toString(2).padStart(8) + " " +
+          b2.toString(2).padStart(8),
+      );
     }
   } else if (seven === 0b0000010) {
     return [Instr.ADD, Type.IMM_TO_ACC];
   } else if (six === 0b001010) {
     return [Instr.SUB, Type.REG_OR_MEM_TO_MEM];
   } else if (seven === 0b0010110) {
-    return [Instr.SUB, Type.IMM_TO_ACC]
+    return [Instr.SUB, Type.IMM_TO_ACC];
   } else if (six === 0b001110) {
     return [Instr.CMP, Type.REG_OR_MEM_TO_MEM];
   } else if (seven === 0b0011110) {
     return [Instr.CMP, Type.IMM_TO_ACC];
-  } 
-  else {
-    throw new Error("Invalid instruction: " + b1.toString(2).padStart(8) + " " + b2.toString(2).padStart(8));
+  } else {
+    throw new Error(
+      "Invalid instruction: " + b1.toString(2).padStart(8) + " " +
+        b2.toString(2).padStart(8),
+    );
   }
-
-}
-
-
+};
 
 const decodeFile = (filename: string) => {
   const data: Uint8Array = Deno.readFileSync(filename);
-
-  console.log("bits 16");
+  const output = [];
+  output.push("bits 16");
   // iterate two bytes at a time
   for (let i = 0; i < data.length; i += 2) {
-
     const [instr, instrType] = getInstrAndVersion(data[i], data[i + 1]);
-    // console.log(instr, instrType)
     if (instrType === Type.REG_OR_MEM_TO_MEM) {
       // register/memory to/from register
       const d = (data[i] >> 1) & 0b1;
@@ -137,9 +208,9 @@ const decodeFile = (filename: string) => {
       }
 
       if (d == 0) {
-        console.log(`${instr} ${s2}, ${s1}`);
+        output.push(`${instr} ${s2}, ${s1}`);
       } else {
-        console.log(`${instr} ${s1}, ${s2}`);
+        output.push(`${instr} ${s1}, ${s2}`);
       }
     } else if (instrType === Type.IMM_TO_REG_OR_MEM) {
       // immediate to register/memory
@@ -190,13 +261,11 @@ const decodeFile = (filename: string) => {
           throw new Error("Invalid mod");
       }
       let imm = data[i + 2];
-      if (s == 0 && w == 1) {
+      if ((instr == Instr.MOV || s == 0) && w == 1) {
         imm = data[i + 3] << 8 | imm;
-        console.log(`${instr} ${s2}, word ${imm}`);
         i += 1;
-      } else {
-        console.log(`${instr} ${s2}, byte ${imm}`);
       }
+      output.push(`${instr} ${w == 0 ? "byte" : "word"} ${s2}, ${imm}`);
       i += 1;
     } else if (instrType === Type.IMM_TO_REG) {
       // immediate to register
@@ -207,23 +276,23 @@ const decodeFile = (filename: string) => {
         imm = data[i + 2] << 8 | imm;
         i += 1;
       }
-      console.log(`${instr} ${registers[w][reg]}, ${imm}`);
+      output.push(`${instr} ${registers[w][reg]}, ${imm}`);
     } else if (instrType === Type.MEM_TO_ACC) {
       // memory to accumulator
       const addr = data[i + 2] << 8 | data[i + 1];
       if (data[i] & 0b1) {
-        console.log(`${instr} ax, [${addr}]`);
+        output.push(`${instr} ax, [${addr}]`);
       } else {
-        console.log(`${instr} al, [${addr}]`);
+        output.push(`${instr} al, [${addr}]`);
       }
       i += 1;
     } else if (instrType === Type.ACC_TO_MEM) {
       const addr = data[i + 2] << 8 | data[i + 1];
       // accumulator to memory
       if (data[i] & 0b1) {
-        console.log(`${instr} [${addr}], ax`);
+        output.push(`${instr} [${addr}], ax`);
       } else {
-        console.log(`${instr} [${addr}], al`);
+        output.push(`${instr} [${addr}], al`);
       }
       i += 1;
     } else if (instrType === Type.IMM_TO_ACC) {
@@ -231,15 +300,24 @@ const decodeFile = (filename: string) => {
       let imm = data[i + 1];
       if (w == 1) {
         imm = data[i + 2] << 8 | imm;
-        console.log(`${instr} ax, ${imm}`);
+        output.push(`${instr} ax, ${imm}`);
         i += 1;
       } else {
-        console.log(`${instr} al, ${imm}`);
+        output.push(`${instr} al, ${imm}`);
       }
+    } else if (instrType === Type.JUMP) {
+      let dis = data[i + 1];
+      if (dis >> 7 & 1) {
+        dis = (~dis + 1) & 0xff;
+        dis = -dis;
+      }
+      output.push(`${instr} ${dis}`);
     } else {
       throw new Error("Invalid opcode");
     }
   }
+
+  console.log(output.join("\n"));
 };
 
 const main = () => {
