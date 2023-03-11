@@ -63,7 +63,11 @@ const getInstrAndVersion = (b1: number, b2: number) => {
     return [Instr.SUB, Type.REG_OR_MEM_TO_MEM];
   } else if (seven === 0b0010110) {
     return [Instr.SUB, Type.IMM_TO_ACC]
-  }
+  } else if (six === 0b001110) {
+    return [Instr.CMP, Type.REG_OR_MEM_TO_MEM];
+  } else if (seven === 0b0011110) {
+    return [Instr.CMP, Type.IMM_TO_ACC];
+  } 
   else {
     throw new Error("Invalid instruction: " + b1.toString(2).padStart(8) + " " + b2.toString(2).padStart(8));
   }
@@ -146,7 +150,14 @@ const decodeFile = (filename: string) => {
       let s2;
       switch (mod) {
         case 0b00:
-          s2 = `[${rm_maps[rm]}]`;
+          if (rm === 0b110) {
+            // direct address
+            const dis = data[i + 3] << 8 | data[i + 2];
+            s2 = `[${dis}]`;
+            i += 2;
+          } else {
+            s2 = `[${rm_maps[rm]}]`;
+          }
           break;
         case 0b01: {
           let dis = data[i + 2];
