@@ -22,25 +22,19 @@ enum Instr {
   JE = "je",
   JL = "jl",
   JLE = "jle",
-
   JNE = "jne",
-  JNZ = "jnz",
   JNO = "jno",
   JNP = "jnp",
   JNS = "jns",
-  JZ = "jz",
   JB = "jb",
   JBE = "jbe",
   JP = "jp",
   JG = "jg",
   JNL = "jnl",
-  JMP = "jmp",
   JA = "ja",
   JNB = "jnb",
   JO = "jo",
   JS = "js",
-  JPE = "jpe",
-  JPO = "jpo",
   LOOP = "loop",
   LOOPZ = "loopz",
   LOOPNZ = "loopnz",
@@ -56,6 +50,12 @@ enum Type {
   IMM_TO_ACC,
   JUMP,
 }
+
+const instrMicroCode: Record<number, Instr> = {
+  0b000: Instr.ADD,
+  0b101: Instr.SUB,
+  0b111: Instr.CMP,
+};
 
 const getInstrAndVersion = (b1: number, b2: number) => {
   const four = b1 >> 4;
@@ -115,32 +115,15 @@ const getInstrAndVersion = (b1: number, b2: number) => {
     return [Instr.MOV, Type.MEM_TO_ACC];
   } else if (seven === 0b1010001) {
     return [Instr.MOV, Type.ACC_TO_MEM];
-  } else if (six === 0b000000) {
-    return [Instr.ADD, Type.REG_OR_MEM_TO_MEM];
+  } else if ([0b000000, 0b001010, 0b001110].includes(six)) {
+    const fields = (six >> 1) & 0b111;
+    return [instrMicroCode[fields], Type.REG_OR_MEM_TO_MEM];
   } else if (six === 0b100000) {
     const fields = (b2 >> 3) & 0b111;
-    if (fields === 0b000) {
-      return [Instr.ADD, Type.IMM_TO_REG_OR_MEM];
-    } else if (fields === 0b101) {
-      return [Instr.SUB, Type.IMM_TO_REG_OR_MEM];
-    } else if (fields === 0b111) {
-      return [Instr.CMP, Type.IMM_TO_REG_OR_MEM];
-    } else {
-      throw new Error(
-        "Invalid instruction: " + b1.toString(2).padStart(8) + " " +
-          b2.toString(2).padStart(8),
-      );
-    }
-  } else if (seven === 0b0000010) {
-    return [Instr.ADD, Type.IMM_TO_ACC];
-  } else if (six === 0b001010) {
-    return [Instr.SUB, Type.REG_OR_MEM_TO_MEM];
-  } else if (seven === 0b0010110) {
-    return [Instr.SUB, Type.IMM_TO_ACC];
-  } else if (six === 0b001110) {
-    return [Instr.CMP, Type.REG_OR_MEM_TO_MEM];
-  } else if (seven === 0b0011110) {
-    return [Instr.CMP, Type.IMM_TO_ACC];
+    return [instrMicroCode[fields], Type.IMM_TO_REG_OR_MEM];
+  } else if ([0b0000010, 0b0010110, 0b0011110].includes(seven)) {
+    const fields = (seven >> 2) & 0b111;
+    return [instrMicroCode[fields], Type.IMM_TO_ACC];
   } else {
     throw new Error(
       "Invalid instruction: " + b1.toString(2).padStart(8) + " " +
